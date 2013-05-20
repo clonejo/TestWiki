@@ -1,0 +1,100 @@
+﻿As of 12w17a, minecraft implements SSL-like encryption.
+
+== Overview ==
+
+#Client connects to server
+#'''C->S''' 0x02 handshake
+#'''S->C''' 0xFD encryption request - server sends its server id string, public key, and 4 random bytes
+#Client generates symmetric key (shared secret)
+#Client authenticates via [[Session|session.minecraft.net]].
+#Client encrypts these 4 bytes with the servers public key.
+#'''C->S''' 0xFC encryption response - client encrypts shared secret with server's public key and sends along with encrypted 4 bytes
+#Server checks that the encrypted bytes match
+#Server decrypts shared secret with its private key
+#Server checks player authenticity via session.minecraft.net
+#'''S->C''' 0xFC encryption response - empty payload meaning two zero length byte arrays and two zero shorts
+#Server enables AES/CFB8 stream encryption
+#Client enables AES/CFB8 stream encryption
+#'''C->S''' 0xCD - Payload of 0 (byte)
+#'''S->C''' 0x01 login
+#see [[Protocol FAQ]] to get information about what happens next.
+
+== Key Exchange ==
+
+The server generates a 1024-bit RSA keypair on startup. The key, when packed into a 0xFD packet, is in ASN.1 format as defined by x.509.
+The ASN.1 structure looks as follows
+
+ SubjectPublicKeyInfo ::= SEQUENCE {
+   algorithm SEQUENCE {
+     algorithm         OBJECT IDENTIFIER
+     parameters        ANY OPTIONAL
+   }
+   subjectPublicKey  BITSTRING
+ }
+ 
+ SubjectPublicKey ::= SEQUENCE {
+   modulus           INTEGER
+   publicExponent    INTEGER
+ }
+
+If you're struggling to import this using a crypto library, you can convert it to common PEM by base64-encoding and wrapping in '-----BEGIN PUBLIC KEY-----' and '-----END PUBLIC KEY-----'.
+
+== Symmetric Encryption ==
+
+On receipt of a 0xFD from the server, the client will generate a 16-byte shared secret, to be used with the AES/CFB8 stream cipher. It then encrypts it with the server's public key (PKCS#1 v1.5 padded), and also encrypts the token received in the 0xFD packet in the same way, then sends both to the server in a 0xFC packet.
+
+The server decrypts the shared secret and token using its private key, and checks if the token is the same. It then sends a 0xFC to the client with an empty payload, and enables  AES/CFB8 encryption. For the Initial Vector (IV) and AES setup, both sides use the secret key. Similarly, the client will also enable encryption upon receipt of the empty 0xFC. From this point forward, everything is encrypted.
+
+== Authentication ==
+
+Both server and client need to make a request to session.minecraft.net if the server is in online-mode.
+
+=== Client ===
+
+After generating the shared secret, the client generates the following hash:
+
+ sha1 := Sha1()
+ sha1.update(ASCII encoding of the server id string from 0xFD) 
+ sha1.update(shared secret) 
+ sha1.update(server's encoded public key from 0xFD) 
+ hash := sha1.hexdigest()  # String of hex characters
+
+[[File:Icon_exclaim.gif|:!:]] Note that the Sha1.hexdigest() method used by minecraft removes leading zeros and uses the two's-complement of negative numbers prefixed with a minus sign:
+
+ sha1(Notch) :  4ed1f46bbe04bc756bcb17c0c7ce3e4632f06a48
+ sha1(jeb_)  : -7c9d5b0044c130109a5d7b5fb5c317c02b4e28c1
+ sha1(simon) :  88e16a1019277b15d58faf0541e11910eb756f6
+
+The resulting hash is then sent via an HTTP GET request to
+ <nowiki>http://session.minecraft.net/game/joinserver.jsp?user=</nowiki>''username''&sessionId=''[[Session#Login|user_session]]''&serverId=''hash''
+If it returns '''OK''' then continue, otherwise stop
+
+=== Server ===
+
+After decrypting the shared secret in the second 0xFC, the server generates the login hash as above and sends it to
+ <nowiki>http://session.minecraft.net/game/checkserver.jsp?user=</nowiki>''username''&serverId=''hash''
+
+If the response is '''YES''' then the client is authenticated and allowed to join. Otherwise the client will/should be [[Protocol#Disconnect.2FKick_.280xFF.29|kicked]] (unencrypted) with "Failed to verify username!"
+
+=== Sample Code ===
+
+Examples of generating Java-style hex digests:
+
+* C#: https://gist.github.com/404223052379e82f91e6
+* node.js: https://gist.github.com/4425843
+* Go: https://gist.github.com/toqueteos/5372776
+
+== Additional Links ==
+[https://gist.github.com/3900517 Encrypt shared secret using OpenSSL]
+
+[http://pastebin.com/8eYyKZn6 Generate RSA-Keys and building the ASN.1v8 structure of the x.509 certificate using Crypto++]
+
+[http://pastebin.com/7Jvaama1 Decrypt shared secret using Crypto++]
+
+[http://pastebin.com/MjvR0T98 De/Encrypt data via AES using Crypto++]
+
+[https://github.com/SirCmpwn/Craft.Net/blob/master/Craft.Net/AesStream.cs C# AES/CFB support with bouncy castle on Mono]
+
+
+[[Category:Protocol Details]]
+[[Category:Minecraft Modern]]

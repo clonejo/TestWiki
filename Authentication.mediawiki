@@ -1,0 +1,399 @@
+The minecraft client and server communicate with minecraft.net to validate player sessions. This page describes some of the operations.
+
+== Login ==
+
+To log the player in, the official launcher sends an HTTPS POST (GET appears to suffice as well) request to:
+<pre>https://login.minecraft.net</pre>
+with the postdata:
+  ?user=<username>&password=<password>&version=<launcher version>
+and a "application/x-www-form-urlencoded" Content-Type header.
+
+The current launcher version is "13", sending a value lower than 12 will cause the server to return "Old version", however you can send any large number and it will return as expected. If the login succeeded, it will return 5 ':' delimited values.
+  1343825972000:deprecated:SirCmpwn:7ae9007b9909de05ea58e94199a33b30c310c69c:dba0c48e1c584963b9e93a038a66bb98
+#'''current version''' of the game files (not the launcher itself). This is a unix timestamp which the launcher compares to the ~/.minecraft/bin/version file.
+#Previously contained a '''download ticket''' for requesting new versions of minecraft.jar from the server. Now contains only "deprecated".
+#'''case-correct username'''.
+#'''sessionId''' - a unique ID for your current session.
+#'''UID''' - currently unused, introduced near August 8th, 2012. Grum says this is the unique ID for the user, potentially for changing Minecraft names in future.
+
+If the request is missing a parameter, the server will return "Bad response". If the login information is incorrect, the server will return "Bad login". If the login information is correct but the account isn't premium, the server will return "User not premium". If your minecraft.net account has been migrated to a Mojang account but you're logging in with your minecraft.net username the server will return "Acount migrated, use e-mail".
+
+== Updating ==
+
+To update, the launcher downloads files from 
+<pre>http://s3.amazonaws.com/MinecraftDownload/</pre>
+It takes the unix timestamp from the login request and stores it in ~/.minecraft/bin/version<br />
+The following files are downloaded from /MinecraftDownload/ in this exact order:<br />
+*lwjgl.jar
+*jinput.jar
+*lwjgl_util.jar
+*minecraft.jar
+And then the natives.jar appropriate for the following operating systems: windows, linux, macosx, and solaris
+*<os-from-list-above>_natives.jar.lzma
+
+When downloading minecraft.jar, GET variables are set as follows: ?user=foo&ticket=deprecated, although they seem unnecessary to successfully downloading the file. <br />
+Furthermore, the downloaded files are all verified via MD5 which is sent via ETag by the server on the page for each file.
+
+Further resources are stored in /MinecraftResources. Loading /MinecraftResources provides an XML formatted list of resources, some of which are downloaded by Minecraft and not the launcher.
+
+== Keep-alive ==
+
+Every 6000 ticks, the client sends an HTTPS request to
+<pre>https://login.minecraft.net/session?name=<username>&session=<session id></pre>
+The client discards the server's response.
+
+== Snoop ==
+
+Every 15 minutes, minecraft sends a HTTP POST request giving stats. This can be disabled in server.properties
+
+* '''client''': http://snoop.minecraft.net/client?version=1
+* '''server''': http://snoop.minecraft.net/server?version=1
+
+{| class="wikitable"
+|- class="row0"
+! Field
+!style="width: 72px" | Client
+!style="width: 72px" | Server
+! Example
+! Notes
+|-
+| applet
+| {{yes}}
+| {{no}}
+| <code>true</code>
+| 
+|-
+| avg_rec_packet_count
+| {{no}}
+| {{yes}}
+| <code>0</code>
+| 
+|-
+| avg_rec_packet_size
+| {{no}}
+| {{yes}}
+| <code>0</code>
+| 
+|-
+| avg_sent_packet_count
+| {{no}}
+| {{yes}}
+| <code>6</code>
+| 
+|-
+| avg_sent_packet_size
+| {{no}}
+| {{yes}}
+| <code>44</code>
+| 
+|-
+| avg_tick_ms
+| {{no}}
+| {{yes}}
+| <code>3</code>
+| 
+|-
+| client_brand
+| {{yes}}
+| {{no}}
+| <code>vanilla</code>
+| via <code>ClientBrandRetriever.getClientModName()</code>
+|-
+| cpu_cores
+| {{yes}}
+| {{yes}}
+| <code>2</code>
+| via <code>Runtime.getRuntime().availableProcessors()</code>
+|-
+| dedicated
+| {{no}}
+| {{yes}}
+| <code>true</code>
+| 
+|-
+| display_frequency
+| {{yes}}
+| {{no}}
+| <code>60</code>
+| via <code>org.lwjgl.opengl.Display.getDisplayMode().getFrequency()</code>
+|-
+| display_type
+| {{yes}}
+| {{no}}
+| <code>windowed</code>
+| <code>windowed</code> or <code>fullscreen</code>
+|-
+| fps
+| {{yes}}
+| {{no}}
+| <code>60</code>
+| 
+|-
+| gl_caps[''key'']
+| {{yes}}
+| {{no}}
+| ''varies by key''
+| via <code>org.lwjgl.opengl.GLContext.getCapabilities().GL_ARB_''key''</code>
+|-
+| gl_max_texture_size
+| {{yes}}
+| {{no}}
+| <code>8192</code>
+| 
+|-
+| gui_state
+| {{no}}
+| {{yes}}
+| <code>disabled</code>
+| <code>enabled</code> or <code>disabled</code>
+|-
+| gui_supported
+| {{no}}
+| {{yes}}
+| <code>headless</code>
+| via <code>java.awt.GraphicsEnvironment.isHeadless()</code> (<code>headless</code> or <code>supported</code>)
+|-
+| java_version
+| {{yes}}
+| {{yes}}
+| <code>1.6.0_24</code>
+| via <code>System.getProperty("java.version")</code>
+|-
+| jvm_arg[''n'']
+| {{yes}}
+| {{yes}}
+| <code>-Xms2800M</code>
+| via <code>java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()</code> (-X args only)
+|-
+| jvm_args
+| {{yes}}
+| {{yes}}
+| <code>2</code>
+| see above
+|-
+| memory_free
+| {{yes}}
+| {{yes}}
+| <code>2429082024</code>
+| via <code>Runtime.getRuntime().freeMemory()</code>
+|-
+| memory_max
+| {{yes}}
+| {{yes}}
+| <code>2813722624</code>
+| via <code>Runtime.getRuntime().maxMemory()</code>
+|-
+| memory_total
+| {{yes}}
+| {{yes}}
+| <code>2813722624</code>
+| via <code>Runtime.getRuntime().totalMemory()</code>
+|-
+| opengl_vendor
+| {{yes}}
+| {{no}}
+| <code>NVIDIA Corporation</code>
+| via <code>GL11.glGetString(GL_VENDOR)</code>
+|-
+| opengl_version
+| {{yes}}
+| {{no}}
+| <code>3.3.0 NVIDIA 302.17</code>
+| via <code>GL11.glGetString(GL_VERSION)</code>
+|-
+| os_architecture
+| {{yes}}
+| {{yes}}
+| <code>amd64</code>
+| via <code>System.getProperty("os.arch")</code>
+|-
+| os_name
+| {{yes}}
+| {{yes}}
+| <code>Linux</code>
+| via <code>System.getProperty("os.name")</code>
+|-
+| os_version
+| {{yes}}
+| {{yes}}
+| <code>3.2.0-3-amd64</code>
+| via <code>System.getProperty("os.version")</code>
+|-
+| players_current
+| {{no}}
+| {{yes}}
+| <code>0</code>
+| 
+|-
+| players_max
+| {{no}}
+| {{yes}}
+| <code>20</code>
+| 
+|-
+| players_seen
+| {{no}}
+| {{yes}}
+| <code>4</code>
+| counts files in world/players
+|-
+| server_brand
+| {{no}}
+| {{yes}}
+| <code>vanilla</code>
+| via <code>getServerModName()</code> (hardcoded to "vanilla", overwritten by bukkit et al)
+|-
+| singleplayer
+| {{no}}
+| {{yes}}
+| <code>false</code>
+| whether or not the server is running to support a singleplayer session
+|-
+| snooper_count
+| {{yes}}
+| {{yes}}
+| <code>0</code>
+| how many times the snooper has reported so far
+|-
+| snooper_token
+| {{yes}}
+| {{yes}}
+| <code>dfe921ac-0293-4e42-8d99-1316cdd626d8</code>
+| via <code>java.util.UUID.randomUUID().toString()</code> (unique per program launch)
+|-
+| texpack_name
+| {{yes}}
+| {{no}}
+| <code>Default</code>
+| 
+|-
+| texpack_resolution
+| {{yes}}
+| {{no}}
+| <code>16</code>
+| 
+|-
+| uses_auth
+| {{no}}
+| {{yes}}
+| <code>true</code>
+| corresponds to <code>online-mode</code> in server.properties
+|-
+| version
+| {{yes}}
+| {{yes}}
+| <code>1.4.2</code>
+| 
+|-
+| vsync_enabled
+| {{yes}}
+| {{no}}
+| <code>true</code>
+| 
+|-
+| whitelist_count
+| {{no}}
+| {{yes}}
+| <code>0</code>
+| 
+|-
+| whitelist_enabled
+| {{no}}
+| {{yes}}
+| <code>false</code>
+| 
+|-
+| world[''n''][chunks_loaded]
+| {{no}}
+| {{yes}}
+| <code>978</code>
+| 
+|-
+| world[''n''][difficulty]
+| {{no}}
+| {{yes}}
+| <code>1</code>
+| 
+|-
+| world[''n''][dimension]
+| {{no}}
+| {{yes}}
+| <code>0</code>
+| 
+|-
+| world[''n''][generator_name]
+| {{no}}
+| {{yes}}
+| <code>default</code>
+| 
+|-
+| world[''n''][generator_version]
+| {{no}}
+| {{yes}}
+| <code>1</code>
+| 
+|-
+| world[''n''][hardcore]
+| {{no}}
+| {{yes}}
+| <code>false</code>
+| 
+|-
+| world[''n''][height]
+| {{no}}
+| {{yes}}
+| <code>256</code>
+| 
+|-
+| world[''n''][mode]
+| {{no}}
+| {{yes}}
+| <code>SURVIVAL</code>
+| 
+|-
+| worlds
+| {{no}}
+| {{yes}}
+| <code>3</code>
+|}
+
+== Joining a Server ==
+
+See [[Protocol Encryption]] for details on encrypting connections.
+
+=== Client operation ===
+
+# Client connects to server
+# Client sends a [[Protocol#0x02|0x02 handshake]] containing the current player name
+# Client receives an [[Protocol#0xFD|0xFD encryption request]] with the server's public key and four verification bytes.
+# Client generates a symmetric key.
+# Client sends a HTTP request to 
+#:<pre>http://session.minecraft.net/game/joinserver.jsp?user=<username>&sessionId=<session id>&serverId=<server hash></pre>
+#:If the response is '''OK''' then continue, otherwise stop
+# Client sends [[Protocol#0xFC|0xFC encryption response]] - client encrypts shared secret and verification token with the server's public key
+# Server checks validity and sends [[Protocol#0xFC|0xFC encryption response]] with two empty arrays
+# Both sides enable AES/CFB2 encryption using the shared secret generated by the client
+# Client sends [[Protocol#0xCD|0xCD client status]] with a payload of 0 (ready to spawn)
+# Server sends [[Protocol#0x01|0x01 login]]
+# ... receive map chunks, etc...
+
+=== Server operation ===
+
+# Server generates a 1024-bit RSA keypair.
+# ...
+# Server answers TCP connection request and receives a [[Protocol#0x02|0x02 handshake]] from the client.
+# Server sends [[Protocol#0xFD|0xFD encryption request]] with its public key and a verification token.
+# Server receives [[Protocol#0xFC|0xFC encryption response]] from client and decrypts the shared secret.
+# Server verifies the validity of the verification token. If this isn't verified, it kicks the client.
+# Server sends a HTTP request to
+#:<pre>http://session.minecraft.net/game/checkserver.jsp?user=<username>&serverId=<server hash></pre>
+#:If it returns '''YES''' then the client is authenticated and allowed to join. Otherwise the client will/should be [[Protocol#0xFF|kicked]] with “Failed to verify username!”
+# Server sends a [[Protocol#0xFC|0xFC encryption response]] packet with two empty arrays.
+# Both sides enable AES/CFB2 encryption.
+# Server receives [[Protocol#0xCD|0xCD client status]] with a payload of , indicating "ready to spawn"
+# Server sends [[Protocol#0x01|0x01 login]]
+# ... send map chunks, etc...
+
+
+[[Category:Protocol Details]]
+[[Category:Minecraft Modern]]
