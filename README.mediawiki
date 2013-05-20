@@ -9,13 +9,13 @@ Minecraft Modern is the latest (and only updated) version of Minecraft which req
 === Documentation ===
 There are ongoing efforts to keep reverse engineered documentation updated, but it isn't as easy as it sounds. The protocol generally changes with each release, and both the Client and Server classes get rearranged on each release. Below are links to the current documentation segments, which '''may or may not be up to date'''.
 
-* [[Protocol FAQ]]
-* [[Protocol|Current Protocol Specification]]
+* [[Protocol_FAQ.mediawiki|Protocol_FAQ]]
+* [[Protocol.mediawiki|Current Protocol Specification]]
 * [[Pre-release protocol|Pre-release Protocol Specificaton]]
-* [[Rcon]] and [[Query]] protocol specifications
-* [[Authentication|Authentication Scheme]]
-* [[Protocol Encryption]]
-* [[Map Format]] (See also: mirror of the old [[NBT]].txt)
+* [[Rcon.mediawiki|Rcon]] and [[Query.mediawiki|Query]] protocol specifications
+* [[Authentication.mediawiki|Authentication Scheme]]
+* [[Protocol_Encryption.mediawiki|Protocol Encryption]]
+* [[Map_Format.mediawiki|Map Format]] (See also: mirror of the old [[NBT]].txt)
 
 === Tools & Mods ===
 * [[Client List|Clients]] - third-party Minecraft clients.
